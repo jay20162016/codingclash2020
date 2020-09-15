@@ -2,23 +2,20 @@ import math
 
 from .stubs import *
 
-MAP_WIDTH = 40
-MAP_HEIGHT = 40
+# * Blockchain constants
+TEAM_KEY = 100 if get_team() == TeamColor.RED else 200
 
-"""
-Blockchain:
-
-1st 
-
-5th byte:
-Authentication
-
-"""
+# Purposes
+HQ_LOCATION = 1
+BUILDER_BUILT = 6
+REFINERY_BUILT = 4
+BARRACKS_BUILT = 2
+SAVE_OIL = 5
+TURRET_BUILT = 3
 
 # * Game stuff
 COSTS = {
     RobotType.GUNNER: GameConstants.GUNNER_COST,
-    RobotType.TANK: GameConstants.TANK_COST,
 }
 
 
@@ -38,27 +35,13 @@ def inbounds(a, b):
     return 0 <= a < get_board_width() and 0 <= b < get_board_height()
 
 
-def validate_blockchain(b):
-    return (hash(tuple(b)[:-1]) + 69) % 256 == b[-1]
-
-
 def filter_blockchain(round_num):
     blocks = get_blockchain(round_num)
     valid = []
     for b in blocks:
-        b = list(map(lambda x: (x - 96), b))
-        if validate_blockchain(b):
+        if b[0] == TEAM_KEY:
             valid.append(b)
     return valid
-
-
-def sign_blockchain(b):
-    b = list(map(lambda x: (x + 96) % 256, b))
-    b[-1] = (tuple(hash(b[:-1])) + 69) % 256
-
-
-def write_blockchain(b):
-    add_to_blockchain(sign_blockchain(b))
 
 
 def normalize(num):
@@ -100,7 +83,6 @@ class Robot:
         self.board_height = get_board_height()
         self.round_num = get_round_num()
         self.since_spawn = 0
-
         if self.type != RobotType.HQ:
             blocks = filter_blockchain(0)
             assert (len(blocks) == 1)
@@ -123,6 +105,9 @@ class Robot:
             if block[1] == REFINERY_BUILT:
                 loc = (block[2], block[3])
                 self.building_locs[RobotType.REFINERY].add(loc)
+            elif block[1] == TURRET_BUILT:
+                loc = (block[2], block[3])
+                self.building_locs[RobotType.TURRET].add(loc)
             elif block[1] == BARRACKS_BUILT:
                 loc = (block[2], block[3])
                 self.building_locs[RobotType.BARRACKS].add(loc)
@@ -197,6 +182,9 @@ class Robot:
                 enemies.append(robot)
         return enemies
 
+    def send_saving_message(self):
+        add_to_blockchain([TEAM_KEY, SAVE_OIL, 0, 0, 0])
+
     def try_attack(self):
         if self.oil < self.attack_cost:
             if dist(self.location, self.enemy_hq_loc) <= self.attack_range:
@@ -205,12 +193,11 @@ class Robot:
         enemies = self.get_enemies()
         priority = {
             RobotType.HQ: 6,
-            RobotType.GRENADER: 5,
-            RobotType.BARRACKS: 4,
-            RobotType.REFINERY: 3,
-            RobotType.TURRET: 2.5,
-            RobotType.GUNNER: 2,
-            RobotType.TANK: 1,
+            RobotType.GRENADER: 2,
+            RobotType.BARRACKS: 3,
+            RobotType.REFINERY: 1,
+            RobotType.GUNNER: 4,
+            RobotType.TANK: 5,
         }
         enemies = sorted(enemies, key=lambda e: priority[e.type] if e.type in priority else 0, reverse=True)
         for enemy in enemies:
@@ -223,21 +210,60 @@ class Robot:
 
 
 class HQ(Robot):
+
     def __init__(self):
         super().__init__()
+        add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0])
+        self.num_builders = 0
+        self.max_builders = 1
 
     def run(self):
         super().run()
+        if self.num_builders < self.max_builders:
+            if self.oil > GameConstants.BUILDER_COST:
+                loc = self.trybuild(RobotType.BUILDER)
+                if loc:
+                    add_to_blockchain([TEAM_KEY, BUILDER_BUILT, loc[0], loc[1], self.num_builders])
+                    self.num_builders += 1
+                    return
 
 
 class Builder(Robot):
+
     def __init__(self):
         super().__init__()
         self.speed = GameConstants.BUILDER_SPEED
         self.sense_range = GameConstants.BUILDER_SENSE_RANGE
+        chain = filter_blockchain(self.round_num - 1)
+        assert (len(chain) > 0)
+        self.purpose_map = {0: "R", 1: "B", 2: "R", 3: "B"}
+        self.purpose = "R"
+        self.refineries = 0
+        self.barracks = 0
+        self.turrets=0
+        self.max_refineries = 1
+        self.max_barracks = 10
+        self.maxturrets=1
 
     def run(self):
         super().run()
+
+        if self.refineries >= self.max_refineries and self.barracks >= self.max_barracks:
+            return
+        if self.purpose == "R":
+            if self.oil > GameConstants.REFINERY_COST:
+                loc = self.trybuild(RobotType.REFINERY)
+                if loc:
+                    add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries])
+                    self.refineries += 1
+                    self.purpose = "B"
+        elif self.purpose == "B":
+            if self.oil > GameConstants.BARRACKS_COST:
+                loc = self.trybuild(RobotType.BARRACKS)
+                if loc:
+                    add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks])
+                    self.barracks += 1
+                    self.purpose = "R"
 
 
 class Refinery(Robot):
@@ -251,10 +277,17 @@ class Refinery(Robot):
 class Barracks(Robot):
     def __init__(self):
         super().__init__()
+        self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER,RobotType.GUNNER, RobotType.GUNNER,RobotType.GUNNER]
+        self.spawn_idx = 0
 
     def run(self):
         super().run()
-
+        next_spawn = self.spawn_sequence[self.spawn_idx]
+        if self.oil >= COSTS[next_spawn]:
+            loc = self.trybuild(next_spawn)
+            if loc:
+                self.spawn_idx += 1
+                self.spawn_idx %= len(self.spawn_sequence)
 
 class Turret(Robot):
     def __init__(self):
@@ -264,15 +297,13 @@ class Turret(Robot):
         super().run()
 
 
-class Tank(Robot):
-    def __init__(self):
-        super().__init__()
-        self.speed = GameConstants.TANK_SPEED
-        self.attack_range = GameConstants.TANK_ATTACK_RANGE
-        self.attack_cost = GameConstants.TANK_ATTACK_COST
 
     def run(self):
         super().run()
+        if self.try_attack():
+            return
+        if self.round_num > 100:
+            self.charge()
 
 
 class Gunner(Robot):
@@ -284,33 +315,19 @@ class Gunner(Robot):
 
     def run(self):
         super().run()
-
-
-class Grenader(Robot):
-    def __init__(self):
-        super().__init__()
-
-    def run(self):
-        super().run()
-
-
-class Wall(Robot):
-    def __init__(self):
-        super().__init__()
-
-    def run(self):
-        super().run()
+        if self.try_attack():
+            return
+        if self.round_num > 100:
+            self.charge()
 
 
 type_to_obj = {
     RobotType.HQ: HQ,
-    RobotType.REFINERY: Refinery,
-    RobotType.TURRET: Turret,
-    RobotType.BARRACKS: Barracks,
     RobotType.BUILDER: Builder,
-    RobotType.TANK: Tank,
+    RobotType.REFINERY: Refinery,
+    RobotType.BARRACKS: Barracks,
     RobotType.GUNNER: Gunner,
-    RobotType.GRENADER: Grenader,
+    RobotType.TURRET: Turret
 }
 
 obj = type_to_obj[get_type()]
