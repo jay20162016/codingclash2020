@@ -7,10 +7,10 @@ TEAM_KEY = 100 if get_team() == TeamColor.RED else 200
 
 # Purposes
 HQ_LOCATION = 1
-BUILDER_BUILT = 6
+BUILDER_BUILT = 5
 REFINERY_BUILT = 4
 BARRACKS_BUILT = 2
-SAVE_OIL = 5
+SAVE_OIL = 6
 TURRET_BUILT = 3
 
 # * Game stuff
@@ -183,7 +183,7 @@ class Robot:
         return enemies
 
     def send_saving_message(self):
-        add_to_blockchain([TEAM_KEY, SAVE_OIL, 0, 0, 0])
+        add_to_blockchain([TEAM_KEY, SAVE_OIL, 0, 0, 0] + [0] * 45)
 
     def try_attack(self):
         if self.oil < self.attack_cost:
@@ -192,12 +192,12 @@ class Robot:
             return False
         enemies = self.get_enemies()
         priority = {
-            RobotType.HQ: 6,
+            RobotType.HQ: 5,
             RobotType.GRENADER: 2,
-            RobotType.BARRACKS: 3,
+            RobotType.BARRACKS: 6,
             RobotType.REFINERY: 1,
-            RobotType.GUNNER: 5,
-            RobotType.TANK: 4,
+            RobotType.GUNNER: 4,
+            RobotType.TANK: 3,
         }
         enemies = sorted(enemies, key=lambda e: priority[e.type] if e.type in priority else 0, reverse=True)
         for enemy in enemies:
@@ -213,9 +213,9 @@ class HQ(Robot):
 
     def __init__(self):
         super().__init__()
-        add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0])
+        add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0] + [0] * 45)
         self.num_builders = 0
-        self.max_builders = 1
+        self.max_builders = 10
 
     def run(self):
         super().run()
@@ -223,7 +223,7 @@ class HQ(Robot):
             if self.oil > GameConstants.BUILDER_COST:
                 loc = self.trybuild(RobotType.BUILDER)
                 if loc:
-                    add_to_blockchain([TEAM_KEY, BUILDER_BUILT, loc[0], loc[1], self.num_builders])
+                    add_to_blockchain([TEAM_KEY, BUILDER_BUILT, loc[0], loc[1], self.num_builders] + [0] * 45)
                     self.num_builders += 1
                     return
 
@@ -254,14 +254,14 @@ class Builder(Robot):
             if self.oil > GameConstants.REFINERY_COST:
                 loc = self.trybuild(RobotType.REFINERY)
                 if loc:
-                    add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries])
+                    add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries] + [0] * 45)
                     self.refineries += 1
                     self.purpose = "B"
         elif self.purpose == "B":
             if self.oil > GameConstants.BARRACKS_COST:
                 loc = self.trybuild(RobotType.BARRACKS)
                 if loc:
-                    add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks])
+                    add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks] + [0] * 45)
                     self.barracks += 1
                     self.purpose = "R"
 
@@ -301,7 +301,7 @@ class Turret(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 30:
+        if self.round_num > 10:
             self.charge()
 
 
@@ -316,10 +316,8 @@ class Gunner(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 70:
-            self.charge()
-        else:
-            self.move_towards(self.hq_loc)
+        self.charge()
+
 
 
 type_to_obj = {
