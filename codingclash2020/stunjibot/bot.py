@@ -15,7 +15,7 @@ TURRET_BUILT = 3
 
 # * Game stuff
 COSTS = {
-    RobotType.TANK: GameConstants.TANK_COST,
+    RobotType.GUNNER: GameConstants.GUNNER_COST,
 }
 
 
@@ -242,13 +242,13 @@ class Builder(Robot):
         self.barracks = 0
         self.turrets=0
         self.max_refineries = 1
-        self.max_barracks = 10
+        self.max_barracks = 3
         self.maxturrets=1
 
     def run(self):
         super().run()
 
-        if self.refineries >= self.max_refineries and self.barracks >= self.max_barracks:
+        if self.refineries == 1 and self.barracks >= self.max_barracks:
             return
         if self.purpose == "R":
             if self.oil > GameConstants.REFINERY_COST:
@@ -263,7 +263,7 @@ class Builder(Robot):
                 if loc:
                     add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks])
                     self.barracks += 1
-                    self.purpose = "R"
+                    self.purpose = "B"
 
 
 class Refinery(Robot):
@@ -277,7 +277,7 @@ class Refinery(Robot):
 class Barracks(Robot):
     def __init__(self):
         super().__init__()
-        self.spawn_sequence = [RobotType.TANK, RobotType.TANK,RobotType.TANK, RobotType.TANK,RobotType.TANK]
+        self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER,RobotType.GUNNER, RobotType.GUNNER,RobotType.GUNNER]
         self.spawn_idx = 0
 
     def run(self):
@@ -296,12 +296,7 @@ class Turret(Robot):
     def run(self):
         super().run()
 
-class Tank(Robot):
-    def __init__(self):
-        super().__init__()
-        self.speed = GameConstants.TANK_SPEED
-        self.attack_range = GameConstants.TANK_ATTACK_RANGE
-        self.attack_cost = GameConstants.TANK_ATTACK_COST
+
 
     def run(self):
         super().run()
@@ -331,7 +326,6 @@ type_to_obj = {
     RobotType.BUILDER: Builder,
     RobotType.REFINERY: Refinery,
     RobotType.BARRACKS: Barracks,
-    RobotType.TANK: Tank,
     RobotType.GUNNER: Gunner,
     RobotType.TURRET: Turret
 }

@@ -242,13 +242,13 @@ class Builder(Robot):
         self.barracks = 0
         self.turrets=0
         self.max_refineries = 1
-        self.max_barracks = 10
+        self.max_barracks = 3
         self.maxturrets=1
 
     def run(self):
         super().run()
 
-        if self.refineries >= self.max_refineries and self.barracks >= self.max_barracks:
+        if self.refineries == 1 and self.barracks >= self.max_barracks:
             return
         if self.purpose == "R":
             if self.oil > GameConstants.REFINERY_COST:
