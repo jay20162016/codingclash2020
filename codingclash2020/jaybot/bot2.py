@@ -149,6 +149,22 @@ class Robot:
                 return loc
         return None
 
+    def trybuild2(self, robot_type, exceptions=[]):
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                if dx == 0 and dy == 0:
+                    continue
+                delta = (dx, dy)
+                loc = add(self.location, delta)
+                if loc in exceptions:
+                    continue
+                sensed = sense_location(loc)
+                if sensed.type != RobotType.NONE:
+                    continue
+                create(robot_type, loc)
+                return loc
+        return None
+
     def trymove(self, loc):
         if not can_sense_location(loc):
             return False

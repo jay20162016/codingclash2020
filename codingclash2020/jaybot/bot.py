@@ -1,20 +1,15 @@
 import math
-
-# TODO: BETTER COMMS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-"""
-00000000 | 00000000 | 0000000 | 00000000 | 00000000 | 00000000 | 0000000 | 00000000
-Byte 0:
-    Bit 0 = Team #
-"""
+import random
 
 from .stubs import *
+
+# TODO: BETTER COMMS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 MAP_WIDTH = 40
 MAP_HEIGHT = 40
 
 # * Blockchain constants
-TEAM_KEY = 0 if get_team() == TeamColor.RED else 128
+TEAM_KEY = 0 if get_team() == TeamColor.RED else 137
 
 # Purposes
 HQ_LOCATION = 1
@@ -50,7 +45,7 @@ def filter_blockchain(round_num):
     blocks = get_blockchain(round_num)
     valid = []
     for b in blocks:
-        if b[0] // 128 == TEAM_KEY:
+        if b[0] == TEAM_KEY:
             valid.append(b)
     return valid
 
@@ -191,7 +186,8 @@ class Robot:
         return enemies
 
     def send_saving_message(self):
-        add_to_blockchain([TEAM_KEY, SAVE_OIL, 0, 0, 0])
+        # add_to_blockchain([TEAM_KEY, SAVE_OIL, 0, 0, 0])
+        pass
 
     def try_attack(self):
         if self.oil < self.attack_cost:
@@ -221,10 +217,9 @@ class HQ(Robot):
 
     def __init__(self):
         super().__init__()
-        dlog(str([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0]))
-        add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0])
+        add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0] + [0] * 45)
         self.num_builders = 0
-        self.max_builders = 1
+        self.max_builders = 10
 
     def run(self):
         super().run()
@@ -232,7 +227,7 @@ class HQ(Robot):
             if self.oil > GameConstants.BUILDER_COST:
                 loc = self.trybuild(RobotType.BUILDER)
                 if loc:
-                    add_to_blockchain([TEAM_KEY, BUILDER_BUILT, loc[0], loc[1], self.num_builders])
+                    # add_to_blockchain([TEAM_KEY, BUILDER_BUILT, loc[0], loc[1], self.num_builders])
                     self.num_builders += 1
                     return
 
@@ -243,37 +238,35 @@ class Builder(Robot):
         super().__init__()
         self.speed = GameConstants.BUILDER_SPEED
         self.sense_range = GameConstants.BUILDER_SENSE_RANGE
-        chain = filter_blockchain(self.round_num - 1)
-        assert (len(chain) > 0)
         self.refineries = 0
         self.barracks = 0
-        self.max_refineries = 20
+        self.max_refineries = 4
 
     def run(self):
         super().run()
-        sensed = sense()
-        neighbors = []
-        freespace = filter(lambda sensed: dist(sensed.location, self.location), neighbors).count(RobotType.NONE)
-        for sr in sensed:
-            if dist(sr.location, self.location) < 2:
-                neighbors.append()
 
-        if self.oil < max(GameConstants.REFINERY_COST, GameConstants.BARRACKS_COST) or freespace < 2:
-            self.charge()
-        if self.refineries >= self.max_refineries and self.barracks >= self.max_barracks:
-            return
-        if self.refineries < self.max_refineries:
+        if self.refineries < self.max_refineries and (self.barracks >= 1 or self.refineries == 0):
             if self.oil > GameConstants.REFINERY_COST:
-                loc = self.trybuild(RobotType.REFINERY)
+                loc = self.trybuild(RobotType.REFINERY,
+                                    exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
                 if loc:
-                    add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries])
+                    # add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries])
                     self.refineries += 1
+            elif dist(self.location, self.enemy_hq_loc) > 400 and len(self.get_enemies()) == 0:
+                self.charge()
+            else:
+                self.move_towards(self.hq_loc)
         else:
             if self.oil > GameConstants.BARRACKS_COST:
-                loc = self.trybuild(RobotType.BARRACKS)
+                loc = self.trybuild(RobotType.BARRACKS,
+                                    exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
                 if loc:
-                    add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks])
+                    # add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks])
                     self.barracks += 1
+            elif dist(self.location, self.enemy_hq_loc) > 400 and len(self.get_enemies()) == 0 and self.refineries:
+                self.charge()
+            else:
+                self.move_towards(self.hq_loc)
 
 
 class Refinery(Robot):
@@ -287,13 +280,13 @@ class Refinery(Robot):
 class Barracks(Robot):
     def __init__(self):
         super().__init__()
-        self.spawn_sequence = [RobotType.TANK, RobotType.TANK, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
+        self.spawn_sequence = [RobotType.TANK, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
         self.spawn_idx = 0
 
     def run(self):
         super().run()
         next_spawn = self.spawn_sequence[self.spawn_idx]
-        if self.oil >= COSTS[next_spawn]:
+        if self.oil >= COSTS[next_spawn] and (self.round_num > 40 or random.random() < 0.1) and random.random() < 0.6:
             loc = self.trybuild(next_spawn)
             if loc:
                 self.spawn_idx += 1
