@@ -7,6 +7,7 @@ let boards = [];
 let dlogs = [];
 let bchain = [];
 let info = [];
+let general = [];
 let piece_counts = {"t": 0,
                     "g": 0,
                     "h": 0,
@@ -154,6 +155,7 @@ function updateBoardNum(new_num){
     updateScrolls();
     updateInfo();
     updatePieceNum();
+    updateGeneral(board_num);
     updateWinner(board_num);
 }
 
@@ -164,6 +166,12 @@ function updateWinner(board_num){
     }
     let color = gameData["Winner color"] == "red" ? "red" : gameData["Winner color"] == "blue" ? "blue" : "black";
     $("#gameBoard").css("border", "5px solid " + color);
+}
+
+function updateGeneral(board_num){
+    let general_info = general[board_num];
+    $("#blueOil").text(general_info[0]);
+    $("#redOil").text(general_info[1]);
 }
 
 function updatePieceNum(){
@@ -242,6 +250,7 @@ function processReplay(data){
             dlogs.push([]);
             bchain.push([]);
             info.push({});
+            general.push([])
             roundNum += 1;
         }
         else if (line.startsWith("[DLOG]")){
@@ -264,6 +273,11 @@ function processReplay(data){
             let col = temp[3];
             info[roundNum]["row-" + row + "_col-" + col] = line;
             info[roundNum][id] = line;
+        }
+        else if (line.startsWith("[GENERAL]")){
+            let temp = line.split(" ");
+            general[roundNum].push(temp[1]);
+            general[roundNum].push(temp[2]);
         }
         else{
             console.log("Unknown line: " + line);
