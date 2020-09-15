@@ -196,8 +196,8 @@ class Robot:
             RobotType.GRENADER: 2,
             RobotType.BARRACKS: 3,
             RobotType.REFINERY: 1,
-            RobotType.GUNNER: 4,
-            RobotType.TANK: 5,
+            RobotType.GUNNER: 5,
+            RobotType.TANK: 4,
         }
         enemies = sorted(enemies, key=lambda e: priority[e.type] if e.type in priority else 0, reverse=True)
         for enemy in enemies:
@@ -265,7 +265,6 @@ class Builder(Robot):
                     self.barracks += 1
                     self.purpose = "R"
 
-
 class Refinery(Robot):
     def __init__(self):
         super().__init__()
@@ -302,7 +301,7 @@ class Turret(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 100:
+        if self.round_num > 30:
             self.charge()
 
 
@@ -317,8 +316,10 @@ class Gunner(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 100:
+        if self.round_num > 70:
             self.charge()
+        else:
+            self.move_towards(self.hq_loc)
 
 
 type_to_obj = {

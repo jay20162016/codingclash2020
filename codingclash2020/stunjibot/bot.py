@@ -11,11 +11,13 @@ BUILDER_BUILT = 6
 REFINERY_BUILT = 4
 BARRACKS_BUILT = 2
 SAVE_OIL = 5
-TURRET_BUILT = 3
+TURRET_BUILT = 7
+TANK_BUILT=3
 
 # * Game stuff
 COSTS = {
     RobotType.GUNNER: GameConstants.GUNNER_COST,
+    RobotType.TANK: GameConstants.TANK_COST
 }
 
 
@@ -192,12 +194,12 @@ class Robot:
             return False
         enemies = self.get_enemies()
         priority = {
-            RobotType.HQ: 6,
+            RobotType.HQ: 5,
             RobotType.GRENADER: 2,
             RobotType.BARRACKS: 3,
             RobotType.REFINERY: 1,
-            RobotType.GUNNER: 4,
-            RobotType.TANK: 5,
+            RobotType.GUNNER: 6,
+            RobotType.TANK: 4,
         }
         enemies = sorted(enemies, key=lambda e: priority[e.type] if e.type in priority else 0, reverse=True)
         for enemy in enemies:
@@ -242,13 +244,13 @@ class Builder(Robot):
         self.barracks = 0
         self.turrets=0
         self.max_refineries = 1
-        self.max_barracks = 3
+        self.max_barracks = 4
         self.maxturrets=1
 
     def run(self):
         super().run()
 
-        if self.refineries == 1 and self.barracks >= self.max_barracks:
+        if self.refineries == 2 and self.barracks >= self.max_barracks:
             return
         if self.purpose == "R":
             if self.oil > GameConstants.REFINERY_COST:
@@ -264,6 +266,7 @@ class Builder(Robot):
                     add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks])
                     self.barracks += 1
                     self.purpose = "B"
+        self.charge()
 
 
 class Refinery(Robot):
@@ -317,16 +320,33 @@ class Gunner(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 100:
+        if self.round_num > 70:
             self.charge()
+        else:
+            self.move_towards(self.hq_loc)
 
+class Tank(Robot):
+    def __init__(self):
+        super().__init__()
+        self.speed = GameConstants.TANK_SPEED
+        self.attack_range = GameConstants.TANK_ATTACK_RANGE
+        self.attack_cost = GameConstants.TANK_ATTACK_COST
 
+    def run(self):
+        super().run()
+        if self.try_attack():
+            return
+        if self.round_num > 50:
+            self.charge()
+        else:
+            self.move_towards(self.hq_loc)
 type_to_obj = {
     RobotType.HQ: HQ,
     RobotType.BUILDER: Builder,
     RobotType.REFINERY: Refinery,
     RobotType.BARRACKS: Barracks,
     RobotType.GUNNER: Gunner,
+    RobotType.TANK: Tank,
     RobotType.TURRET: Turret
 }
 
