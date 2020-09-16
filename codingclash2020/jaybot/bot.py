@@ -136,7 +136,10 @@ class Robot:
                 loc = add(self.location, delta)
                 if loc in exceptions:
                     continue
-                sensed = sense_location(loc)
+                try:
+                    sensed = sense_location(loc)
+                except:
+                    continue
                 if sensed.type != RobotType.NONE:
                     continue
                 create(robot_type, loc)

@@ -180,7 +180,7 @@ class Robot:
         return enemies
 
     def send_saving_message(self):
-        add_to_blockchain([TEAM_KEY, SAVE_OIL, 0, 0, 0])
+        add_to_blockchain([TEAM_KEY, SAVE_OIL, 0, 0, 0]+[0]*45)
 
     def try_attack(self):
         if self.oil < self.attack_cost:
@@ -210,7 +210,7 @@ class HQ(Robot):
 
     def __init__(self):
         super().__init__()
-        add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0])
+        add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0]+[0]*45)
         self.num_builders = 0
         self.max_builders = 1
 
@@ -220,7 +220,7 @@ class HQ(Robot):
             if self.oil > GameConstants.BUILDER_COST:
                 loc = self.trybuild(RobotType.BUILDER)
                 if loc:
-                    add_to_blockchain([TEAM_KEY, BUILDER_BUILT, loc[0], loc[1], self.num_builders])
+                    add_to_blockchain([TEAM_KEY, BUILDER_BUILT, loc[0], loc[1], self.num_builders]+[0]*45)
                     self.num_builders += 1
                     return
 
@@ -248,14 +248,14 @@ class Builder(Robot):
             if self.oil > GameConstants.REFINERY_COST:
                 loc = self.trybuild(RobotType.REFINERY)
                 if loc:
-                    add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries])
+                    add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries]+[0]*45)
                     self.refineries += 1
                     self.purpose = "B"
         elif self.purpose == "B":
             if self.oil > GameConstants.BARRACKS_COST:
                 loc = self.trybuild(RobotType.BARRACKS)
                 if loc:
-                    add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks])
+                    add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks]+[0]*45)
                     self.barracks += 1
                     self.purpose = "R"
 
