@@ -1,18 +1,19 @@
 import math
+import random
 
 from .stubs import *
-
+# TODO: BUILD MORE STUFF AND GET MORE OIL>>>...>>>...>>>
 # * Blockchain constants
 TEAM_KEY = 100 if get_team() == TeamColor.RED else 200
 
 # Purposes
-HQ_LOCATION = 1
-BUILDER_BUILT = 6
-REFINERY_BUILT = 4
-BARRACKS_BUILT = 2
-SAVE_OIL = 5
-TURRET_BUILT = 7
-TANK_BUILT=3
+HQ_LOCATION = 6
+BUILDER_BUILT = 1
+REFINERY_BUILT = 5
+BARRACKS_BUILT = 4
+TANK_BUILT = 2
+SAVE_OIL = 7
+TURRET_BUILT = 3
 
 # * Game stuff
 COSTS = {
@@ -194,12 +195,12 @@ class Robot:
             return False
         enemies = self.get_enemies()
         priority = {
-            RobotType.HQ: 5,
+            RobotType.HQ: 6,
             RobotType.GRENADER: 2,
-            RobotType.BARRACKS: 6,
+            RobotType.BARRACKS: 3,
             RobotType.REFINERY: 1,
-            RobotType.GUNNER: 4,
-            RobotType.TANK: 3,
+            RobotType.GUNNER: 5,
+            RobotType.TANK: 4,
         }
         enemies = sorted(enemies, key=lambda e: priority[e.type] if e.type in priority else 0, reverse=True)
         for enemy in enemies:
@@ -217,10 +218,17 @@ class HQ(Robot):
         super().__init__()
         add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0] + [0] * 45)
         self.num_builders = 0
-        self.max_builders = 1
+        if self.round_num<100:
+            self.max_builders = 1
+        else:
+            self.max_builders=100
 
     def run(self):
         super().run()
+        if self.round_num<100:
+            self.max_builders = 1
+        else:
+            self.max_builders=100
         if self.num_builders < self.max_builders:
             if self.oil > GameConstants.BUILDER_COST:
                 loc = self.trybuild(RobotType.BUILDER)
@@ -242,29 +250,53 @@ class Builder(Robot):
         self.purpose = "R"
         self.refineries = 0
         self.barracks = 0
-        self.turrets=0
+        self.turrets = 0
         self.max_refineries = 1
-        self.max_barracks = 4
-        self.maxturrets=1
+        self.max_barracks = 3
+        self.maxturrets = 1
 
     def run(self):
         super().run()
-
-        if self.purpose == "R":
-            if self.oil > GameConstants.REFINERY_COST:
-                loc = self.trybuild(RobotType.REFINERY)
-                if loc:
-                    add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries] + [0] * 45)
-                    self.refineries += 1
-                    self.purpose = "B"
-        elif self.purpose == "B":
-            if self.oil > GameConstants.BARRACKS_COST:
-                loc = self.trybuild(RobotType.BARRACKS)
-                if loc:
-                    add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks] + [0] * 45)
-                    self.barracks += 1
-                    self.purpose = "B"
-        self.charge()
+        if "GUNNER" not in self.get_enemies() and "TANK" not in self.get_enemies():
+            self.charge()
+        if self.round_num<10:
+            if random.random() < 0.07:
+                self.charge()
+            if random.random() < 0.1:
+                self.move_towards(self.hq_loc)
+            if self.purpose == "R":
+                if self.oil > GameConstants.REFINERY_COST:
+                    loc = self.trybuild(RobotType.REFINERY, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
+                    if loc:
+                        add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries] + [0] * 45)
+                        self.refineries += 1
+                        self.purpose = "R" if random.random() < 0.0 else "R"
+            elif self.purpose == "B":
+                if self.oil > GameConstants.BARRACKS_COST:
+                    loc = self.trybuild(RobotType.BARRACKS, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
+                    if loc:
+                        add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks] + [0] * 45)
+                        self.barracks += 1
+                        self.purpose = "R"
+        else:
+            if random.random() < 0.2:
+                self.charge()
+            if random.random() < 0.03:
+                self.move_towards(self.hq_loc)
+            if self.purpose == "R":
+                if self.oil > GameConstants.REFINERY_COST:
+                    loc = self.trybuild(RobotType.REFINERY, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
+                    if loc:
+                        add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries] + [0] * 45)
+                        self.refineries += 1
+                        self.purpose = "B" if random.random() < 1 else "R"
+            elif self.purpose == "B":
+                if self.oil > GameConstants.BARRACKS_COST:
+                    loc = self.trybuild(RobotType.BARRACKS, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
+                    if loc:
+                        add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks] + [0] * 45)
+                        self.barracks += 1
+                        self.purpose = "R"
 
 
 class Refinery(Robot):
@@ -278,33 +310,37 @@ class Refinery(Robot):
 class Barracks(Robot):
     def __init__(self):
         super().__init__()
-        self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER,RobotType.GUNNER, RobotType.GUNNER,RobotType.GUNNER]
+        self.spawn_sequence = [RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
+        self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
         self.spawn_idx = 0
 
     def run(self):
         super().run()
         next_spawn = self.spawn_sequence[self.spawn_idx]
-        if self.oil >= COSTS[next_spawn]:
-            loc = self.trybuild(next_spawn)
-            if loc:
-                self.spawn_idx += 1
-                self.spawn_idx %= len(self.spawn_sequence)
+        if self.round_num<100:
+            if self.oil >= COSTS[next_spawn]:
+                loc = self.trybuild(next_spawn)
+                if loc:
+                    self.spawn_idx += 1
+                    self.spawn_idx %= len(self.spawn_sequence)
+        else:
+            self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER,
+                                   RobotType.GUNNER]
+            if self.oil >= COSTS[next_spawn]:
+                loc = self.trybuild(next_spawn)
+                if loc:
+                    self.spawn_idx += 1
+                    self.spawn_idx %= len(self.spawn_sequence)
+
 
 class Turret(Robot):
     def __init__(self):
         super().__init__()
-
+        self.attack_range = GameConstants.TURRET_ATTACK_RANGE
+        self.attack_cost = GameConstants.TURRET_ATTACK_COST
     def run(self):
         super().run()
 
-
-
-    def run(self):
-        super().run()
-        if self.try_attack():
-            return
-        if self.round_num > 100:
-            self.charge()
 
 
 class Gunner(Robot):
@@ -318,10 +354,11 @@ class Gunner(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 30:
+        if self.round_num > 10:
             self.charge()
         else:
             self.move_towards(self.hq_loc)
+
 
 class Tank(Robot):
     def __init__(self):
@@ -334,18 +371,20 @@ class Tank(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 50:
+        if self.round_num > 10:
             self.charge()
         else:
             self.move_towards(self.hq_loc)
+
+
 type_to_obj = {
     RobotType.HQ: HQ,
     RobotType.BUILDER: Builder,
     RobotType.REFINERY: Refinery,
     RobotType.BARRACKS: Barracks,
     RobotType.GUNNER: Gunner,
-    RobotType.TANK: Tank,
-    RobotType.TURRET: Turret
+    RobotType.TURRET: Turret,
+    RobotType.TANK: Tank
 }
 
 obj = type_to_obj[get_type()]
