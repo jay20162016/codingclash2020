@@ -250,8 +250,6 @@ class Builder(Robot):
     def run(self):
         super().run()
 
-        if self.refineries == 2 and self.barracks >= self.max_barracks:
-            return
         if self.purpose == "R":
             if self.oil > GameConstants.REFINERY_COST:
                 loc = self.trybuild(RobotType.REFINERY)
