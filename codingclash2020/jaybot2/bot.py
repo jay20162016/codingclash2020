@@ -13,8 +13,10 @@ TEAM_KEY = 88 if get_team() == TeamColor.BLUE else 176
 COSTS = {
     RobotType.GUNNER: GameConstants.GUNNER_COST,
     RobotType.TANK: GameConstants.TANK_COST,
+    RobotType.GRENADER: GameConstants.GRENADER_COST,
     RobotType.REFINERY: GameConstants.REFINERY_COST,
-    RobotType.BARRACKS: GameConstants.BARRACKS_COST
+    RobotType.BARRACKS: GameConstants.BARRACKS_COST,
+    RobotType.TURRET: GameConstants.TURRET_COST
 }
 
 
@@ -59,7 +61,6 @@ def get_rogue_block():
         for b in blocks:
             if not validate_blockchain(b, round_num) and b not in get_rogue_block.allinvalid:
                 invalid.append(b)
-    dlog(str([round_num, invalid]))
     if invalid:
         return random.choice(invalid)
     return [0] * 50
@@ -292,7 +293,7 @@ class HQ(Robot):
         if self.round_num > 20:
             add_to_blockchain(get_rogue_block())
 
-        if random.random() < 1 / self.num_builders and self.oil > GameConstants.BUILDER_COST:
+        if random.random() < 4 / self.num_builders and self.oil > GameConstants.BUILDER_COST:
             loc = self.trybuild(RobotType.BUILDER)
             if loc:
                 self.num_builders += 1
@@ -309,14 +310,17 @@ class Builder(Robot):
         super().run()
 
         sucess = False
-        buildtype = RobotType.REFINERY if random.random() < 0.97 else RobotType.BARRACKS
+        buildtype = RobotType.REFINERY if random.random() < 75 / self.round_num else \
+            RobotType.BARRACKS if random.random() < 0.9 else RobotType.TURRET
         if self.oil > COSTS[buildtype]:
-            dlog("BUILD")
             loc = self.trybuild2(buildtype)
             sucess = loc is not None
         if not sucess:
             # self.move_away(self.hq_loc)
-            self.move_diff((random.choice([-1, 1]), random.choice([-1, 1])))
+            if random.random() < 0.95:
+                self.move_diff((random.choice([-1, 1]), random.choice([-1, 1])))
+            else:
+                self.charge()
 
 
 class Refinery(Robot):
@@ -330,15 +334,18 @@ class Refinery(Robot):
 class Turret(Robot):
     def __init__(self):
         super().__init__()
+        self.attack_range = GameConstants.TURRET_ATTACK_RANGE
+        self.attack_cost = GameConstants.TURRET_ATTACK_COST
 
     def run(self):
         super().run()
+        self.try_attack()
 
 
 class Barracks(Robot):
     def __init__(self):
         super().__init__()
-        self.spawn_sequence = [RobotType.TANK, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
+        self.spawn_sequence = [RobotType.TANK, RobotType.GUNNER, RobotType.GRENADER, RobotType.GUNNER]
         self.spawn_idx = 0
 
     def run(self):
@@ -373,12 +380,17 @@ class Gunner(Robot):
         self.attack_range = GameConstants.GUNNER_ATTACK_RANGE
         self.attack_cost = GameConstants.GUNNER_ATTACK_COST
 
+        self.protect = random.random() < 0.3
+
     def run(self):
         super().run()
         if self.try_attack():
             return
-        if len(self.get_armed_allys()) > 20:
+        if self.protect and len(self.get_armed_allys()) > 25:
+            self.move_towards(self.hq_loc)
+        elif len(self.get_armed_allys()) > 10:
             self.charge()
+
 
 class Grenader(Robot):
     def __init__(self):
@@ -389,6 +401,30 @@ class Grenader(Robot):
 
     def run(self):
         super().run()
+
+        if not self.try_attack():
+            self.charge()
+
+    def try_attack(self):
+        if self.oil < self.attack_cost:
+            return False
+        enemies = self.get_enemies()
+        priority = {
+            RobotType.HQ: 6,
+            RobotType.GRENADER: 5,
+            RobotType.BARRACKS: 4,
+            RobotType.REFINERY: 3,
+            RobotType.TURRET: 2.5,
+            RobotType.GUNNER: 2,
+            RobotType.TANK: 1,
+        }
+        enemies = sorted(enemies, key=lambda e: priority[e.type] if e.type in priority else 0, reverse=True)
+        for enemy in enemies:
+            if dist(self.location, enemy.location) > self.attack_range:
+                continue
+            attack(enemy.location)
+            return True
+        return False
 
 
 type_to_obj = {
