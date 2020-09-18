@@ -226,10 +226,12 @@ class HQ(Robot):
 
     def run(self):
         super().run()
-        if self.round_num<70:
-            self.max_builders = 6
+        if self.round_num<60:
+            self.max_builders = 3
+        elif self.round_num<130:
+            self.max_builders=10
         else:
-            self.max_builders=10000000000000000000
+            self.max_builders=30
         if self.num_builders < self.max_builders:
             if self.oil > GameConstants.BUILDER_COST:
                 loc = self.trybuild(RobotType.BUILDER)
@@ -260,23 +262,19 @@ class Builder(Robot):
     def run(self):
         super().run()
         if self.build != True:
-            if random.random() < 0.2:
-                self.charge()
-                self.moved = True
-            if random.random() < 0.2:
-                self.moved = True
-                self.move_towards(self.hq_loc)
+            self.charge()
+            self.moved = True
             self.build=True
 
         else:
-            if self.moved == True:
+            if self.moved == True and self.build == True:
                 if self.purpose == "R":
                     if self.oil > GameConstants.REFINERY_COST:
                         loc = self.trybuild(RobotType.REFINERY, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
                         if loc:
                             add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries] + [0] * 45)
                             self.refineries += 1
-                            self.purpose = "R" if random.random() < 35/self.round_num else "B"
+                            self.purpose = "R" if random.random() < 25/self.round_num else "B"
                 elif self.purpose == "B":
                     if self.oil > GameConstants.BARRACKS_COST:
                         loc = self.trybuild(RobotType.BARRACKS, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
@@ -285,6 +283,7 @@ class Builder(Robot):
                             self.barracks += 1
                             self.purpose = "R"
                 self.build=False
+                self.moved=False
 
 
 class Refinery(Robot):
