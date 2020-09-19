@@ -231,7 +231,7 @@ class HQ(Robot):
         if self.get_enemies():
             self.b=True
         if self.round_num<70:
-            self.max_builders = 8
+            self.max_builders = 6
         else:
             self.max_builders=1000
         if self.num_builders < self.max_builders:
