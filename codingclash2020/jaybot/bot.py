@@ -206,12 +206,11 @@ class HQ(Robot):
         super().__init__()
         add_to_blockchain([TEAM_KEY, HQ_LOCATION, self.location[0], self.location[1], 0] + [0] * 45)
         self.num_builders = 0
-        self.max_builders = 3
+        self.max_builders = 6
 
     def run(self):
         super().run()
-        if self.round_num > 50:  # 70
-            self.max_builders += 0.3
+        self.max_builders += 0.2
 
         if self.num_builders < self.max_builders:
             if self.oil > GameConstants.BUILDER_COST:
@@ -283,8 +282,8 @@ class Barracks(Robot):
         next_spawn = self.spawn_sequence[self.spawn_idx]
         if self.oil >= COSTS[next_spawn]:
             loc = self.trybuild(next_spawn)
-            self.spawn_idx += 1
-            self.spawn_idx %= len(self.spawn_sequence)
+        self.spawn_idx += 1
+        self.spawn_idx %= len(self.spawn_sequence)
 
 
 class Turret(Robot):
@@ -311,10 +310,8 @@ class Gunner(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 10:
-            self.charge()
         else:
-            self.move_towards(self.hq_loc)
+            self.charge()
 
 
 class Tank(Robot):
@@ -328,10 +325,8 @@ class Tank(Robot):
         super().run()
         if self.try_attack():
             return
-        if self.round_num > 10:
-            self.charge()
         else:
-            self.move_towards(self.hq_loc)
+            self.charge()
 
 
 type_to_obj = {
