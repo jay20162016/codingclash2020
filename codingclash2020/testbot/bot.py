@@ -135,7 +135,7 @@ class Robot:
                     continue
                 delta = (dx, dy)
                 loc = add(self.location, delta)
-                if loc in exceptions:
+                if loc in exceptions or not inbounds(loc[0], loc[1]) :
                     continue
                 sensed = sense_location(loc)
                 if sensed.type != RobotType.NONE:
@@ -230,10 +230,10 @@ class HQ(Robot):
         self.b = False
         if self.get_enemies():
             self.b=True
-        if self.round_num<70:
-            self.max_builders = 6
+        if self.round_num<50:
+            self.max_builders = 3
         else:
-            self.max_builders=1000
+            self.max_builders=10
         if self.num_builders < self.max_builders:
             if self.oil > GameConstants.BUILDER_COST:
                 loc = self.trybuild(RobotType.BUILDER)
@@ -261,31 +261,32 @@ class Builder(Robot):
         self.maxturrets = 1
         self.build=True
         self.moved=True
+        self.b = False
+
     def run(self):
         super().run()
-        self.b = False
         if self.get_enemies():
             self.b = True
         if self.b:
             self.purpose="B"
-        if self.build != True:
-            if random.random() < 0.2:
+        if self.build != True or self.moved!=True:
+            if random.random() < 0.3:
                 self.charge()
                 self.moved = True
-            if random.random() < 0.2:
+            elif random.random() < 0.7:
                 self.moved = True
                 self.move_towards(self.hq_loc)
             self.build=True
 
         else:
-            if self.moved == True:
+            if self.moved == True and self.build==True or self.b:
                 if self.purpose == "R":
                     if self.oil > GameConstants.REFINERY_COST:
                         loc = self.trybuild(RobotType.REFINERY, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
                         if loc:
                             add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries] + [0] * 45)
                             self.refineries += 1
-                            self.purpose = "R" if not self.b or not self.round_num>60 or not self.refineries>40 else "B"
+                            self.purpose = "R" if random.random() < 40/self.round_num else "B"
                 elif self.purpose == "B":
                     if self.oil > GameConstants.BARRACKS_COST:
                         loc = self.trybuild(RobotType.BARRACKS, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
@@ -310,17 +311,18 @@ class Refinery(Robot):
 class Barracks(Robot):
     def __init__(self):
         super().__init__()
-        self.spawn_sequence = [RobotType.GUNNER, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
-        # self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
+        # self.spawn_sequence = [RobotType.GUNNER, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
+        self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
         self.spawn_idx = 0
+        self.b = False
+
 
     def run(self):
         super().run()
-        self.b = False
         if self.get_enemies():
             self.b = True
         next_spawn = self.spawn_sequence[self.spawn_idx]
-        if self.round_num<70:
+        if self.b:
             if self.oil >= COSTS[next_spawn] and random.random() < 0.1:
                 loc = self.trybuild(next_spawn)
                 if loc:
@@ -408,3 +410,4 @@ robot = obj()
 
 def turn():
     robot.run()
+
