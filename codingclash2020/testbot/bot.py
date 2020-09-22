@@ -144,6 +144,22 @@ class Robot:
                 return loc
         return None
 
+    def trybuild2(self, robot_type, exceptions=[]):
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                if dx == 0 and dy == 0:
+                    continue
+                delta = (dx, dy)
+                loc = add(self.location, delta)
+                if loc in exceptions or not inbounds(loc[0], loc[1]) or bool(bool(loc[0] % 3) ^ bool(loc[1] % 3)):
+                    continue
+                sensed = sense_location(loc)
+                if sensed.type != RobotType.NONE:
+                    continue
+                create(robot_type, loc)
+                return loc
+        return None
+
     def trymove(self, loc):
         if not can_sense_location(loc):
             return False
@@ -162,14 +178,26 @@ class Robot:
     def move_towards(self, loc):
         direction = getdir(self.location, loc)
         totry = [direction, clockwise(direction), counter_clockwise(direction)]
+        rotx1 = [clockwise(direction), counter_clockwise(direction)]
+        rotx2 = [clockwise(clockwise(direction)), counter_clockwise(counter_clockwise(direction))]
+        random.shuffle(rotx1)
+        random.shuffle(rotx2)
+        totry += rotx1
+        totry += rotx2
         for test in totry:
             if self.move_diff(test):
                 return True
         return False
 
     def move_away(self, loc):
-        direction = getdir(loc, self.location)
+        direction = getdir(self.location, loc)
         totry = [direction, clockwise(direction), counter_clockwise(direction)]
+        rotx1 = [clockwise(direction), counter_clockwise(direction)]
+        rotx2 = [clockwise(clockwise(direction)), counter_clockwise(counter_clockwise(direction))]
+        random.shuffle(rotx1)
+        random.shuffle(rotx2)
+        totry += rotx1
+        totry += rotx2
         for test in totry:
             if self.move_diff(test):
                 return True
@@ -183,6 +211,14 @@ class Robot:
         sensed = sense()
         for robot in sensed:
             if robot.team != self.team:
+                enemies.append(robot)
+        return enemies
+
+    def get_enemies2(self):
+        enemies = []
+        sensed = sense()
+        for robot in sensed:
+            if robot.team != self.team and robot.type != RobotType.WALL:
                 enemies.append(robot)
         return enemies
 
@@ -265,15 +301,15 @@ class Builder(Robot):
 
     def run(self):
         super().run()
-        if self.get_enemies():
+        if self.get_enemies2():
             self.b = True
         if self.b:
             self.purpose="B"
         if self.build != True or self.moved!=True:
-            if random.random() < 0.3:
+            if random.random() < 0.6:
                 self.charge()
                 self.moved = True
-            elif random.random() < 0.7:
+            else:
                 self.moved = True
                 self.move_towards(self.hq_loc)
             self.build=True
@@ -282,14 +318,14 @@ class Builder(Robot):
             if self.moved == True and self.build==True or self.b:
                 if self.purpose == "R":
                     if self.oil > GameConstants.REFINERY_COST:
-                        loc = self.trybuild(RobotType.REFINERY, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
+                        loc = self.trybuild2(RobotType.REFINERY, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
                         if loc:
                             add_to_blockchain([TEAM_KEY, REFINERY_BUILT, loc[0], loc[1], self.refineries] + [0] * 45)
                             self.refineries += 1
-                            self.purpose = "R" if random.random() < 40/self.round_num else "B"
+                            self.purpose = "R" if random.random() < 30/self.round_num else "B"
                 elif self.purpose == "B":
                     if self.oil > GameConstants.BARRACKS_COST:
-                        loc = self.trybuild(RobotType.BARRACKS, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
+                        loc = self.trybuild2(RobotType.BARRACKS, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
                         if loc:
                             add_to_blockchain([TEAM_KEY, BARRACKS_BUILT, loc[0], loc[1], self.barracks] + [0] * 45)
                             self.barracks += 1
@@ -311,7 +347,7 @@ class Refinery(Robot):
 class Barracks(Robot):
     def __init__(self):
         super().__init__()
-        # self.spawn_sequence = [RobotType.GUNNER, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
+        # self.spawn_sequence = [RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
         self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
         self.spawn_idx = 0
         self.b = False
@@ -322,16 +358,15 @@ class Barracks(Robot):
         if self.get_enemies():
             self.b = True
         next_spawn = self.spawn_sequence[self.spawn_idx]
-        if self.b:
+        if not self.b or self.oil<1000 or self.round_num<70:
             if self.oil >= COSTS[next_spawn] and random.random() < 0.1:
                 loc = self.trybuild(next_spawn)
                 if loc:
                     self.spawn_idx += 1
                     self.spawn_idx %= len(self.spawn_sequence)
         else:
-            self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER,
-                                   RobotType.GUNNER]
-            # self.spawn_sequence = [RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
+            # self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
+            self.spawn_sequence = [RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
             if self.oil >= COSTS[next_spawn] and random.random() < 1:
                 loc = self.trybuild(next_spawn)
                 if loc:

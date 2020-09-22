@@ -135,7 +135,7 @@ class Robot:
                     continue
                 delta = (dx, dy)
                 loc = add(self.location, delta)
-                if loc in exceptions:
+                if loc in exceptions or not inbounds(loc[0], loc[1]):
                     continue
                 sensed = sense_location(loc)
                 if sensed.type != RobotType.NONE:
@@ -162,14 +162,26 @@ class Robot:
     def move_towards(self, loc):
         direction = getdir(self.location, loc)
         totry = [direction, clockwise(direction), counter_clockwise(direction)]
+        rotx1 = [clockwise(direction), counter_clockwise(direction)]
+        rotx2 = [clockwise(clockwise(direction)), counter_clockwise(counter_clockwise(direction))]
+        random.shuffle(rotx1)
+        random.shuffle(rotx2)
+        totry += rotx1
+        totry += rotx2
         for test in totry:
             if self.move_diff(test):
                 return True
         return False
 
     def move_away(self, loc):
-        direction = getdir(loc, self.location)
+        direction = getdir(self.location, loc)
         totry = [direction, clockwise(direction), counter_clockwise(direction)]
+        rotx1 = [clockwise(direction), counter_clockwise(direction)]
+        rotx2 = [clockwise(clockwise(direction)), counter_clockwise(counter_clockwise(direction))]
+        random.shuffle(rotx1)
+        random.shuffle(rotx2)
+        totry += rotx1
+        totry += rotx2
         for test in totry:
             if self.move_diff(test):
                 return True
@@ -229,7 +241,7 @@ class HQ(Robot):
         if self.round_num<70:
             self.max_builders = 6
         else:
-            self.max_builders=10000000000000000000
+            self.max_builders=100
         if self.num_builders < self.max_builders:
             if self.oil > GameConstants.BUILDER_COST:
                 loc = self.trybuild(RobotType.BUILDER)
@@ -269,7 +281,7 @@ class Builder(Robot):
             self.build=True
 
         else:
-            if self.moved == True:
+            if self.moved == True and self.build==True:
                 if self.purpose == "R":
                     if self.oil > GameConstants.REFINERY_COST:
                         loc = self.trybuild(RobotType.REFINERY, exceptions=[add(self.location, getdir(self.location, self.enemy_hq_loc))])
