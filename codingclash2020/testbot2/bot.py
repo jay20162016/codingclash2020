@@ -331,32 +331,41 @@ class Refinery(Robot):
 class Barracks(Robot):
     def __init__(self):
         super().__init__()
-        # self.spawn_sequence = [RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
-        self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
-        self.spawn_idx = 0
+        # self.spawn_sequence = [RobotType.GUNNER, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
         self.b = False
-
 
     def run(self):
         super().run()
         if self.get_enemies():
             self.b = True
-        next_spawn = self.spawn_sequence[self.spawn_idx]
-        if not self.b or self.oil<1000 or self.round_num<70:
-            if self.oil >= COSTS[next_spawn] and random.random() < 0.1:
-                loc = self.trybuild(next_spawn)
-                if loc:
-                    self.spawn_idx += 1
-                    self.spawn_idx %= len(self.spawn_sequence)
-        else:
-            # self.spawn_sequence = [RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER, RobotType.GUNNER]
-            self.spawn_sequence = [RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK, RobotType.TANK]
-            if self.oil >= COSTS[next_spawn] and random.random() < 1:
-                loc = self.trybuild(next_spawn)
-                if loc:
-                    self.spawn_idx += 1
-                    self.spawn_idx %= len(self.spawn_sequence)
 
+        next_spawn = RobotType.GUNNER if self.oil < 600 else RobotType.TANK
+        spawns = 0
+        ex = []
+
+        if not self.b:
+            while spawns < 3:
+                if self.oil >= COSTS[next_spawn] and self.oil > 1000:
+                    loc = self.trybuild(next_spawn, exceptions=ex)
+                    if loc:
+                        spawns += 1
+                        ex.append(loc)
+                    else:
+                        return
+                else:
+                    return
+
+        else:
+            while spawns < 3:
+                if self.oil >= COSTS[next_spawn]:
+                    loc = self.trybuild(next_spawn, exceptions=ex)
+                    if loc:
+                        spawns += 1
+                        ex.append(loc)
+                    else:
+                        return
+                else:
+                    return
 
 class Turret(Robot):
     def __init__(self):
