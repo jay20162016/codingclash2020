@@ -223,7 +223,7 @@ class Robot:
         enemies = []
         sensed = sense()
         for robot in sensed:
-            if robot.team != self.team and robot.type in [RobotType.GUNNER, RobotType.TANK, RobotType.GRENADER]:
+            if robot.team != self.team and robot.type not in [RobotType.WALL]:
                 enemies.append(robot)
         return enemies
 
@@ -384,7 +384,7 @@ class Barracks(Robot):
         if self.get_enemies():
             self.b = True
 
-        next_spawn = RobotType.GUNNER if self.oil < 600 else RobotType.TANK
+        next_spawn = RobotType.TANK
         spawns = 0
         ex = []
 
